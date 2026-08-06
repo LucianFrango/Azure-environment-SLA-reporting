@@ -1,0 +1,525 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "<img src=\"https://store-images.s-microsoft.com/image/apps.18500.666da00e-3406-4ec4-b831-14a0f461146b.fba1b182-7113-4119-b8cc-1f0ef72f229f.6a4dccb2-15d6-4c27-849c-739ea1fb73bb\" alt=\"drawing\" width=\"160\" />\r\n<hr>\r\n# MONTHLY SLA REPORTING\r\n<hr>"
+      },
+      "name": "text - 0"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "### 🌏 Global Filter options"
+      },
+      "name": "text - 6"
+    },
+    {
+      "type": 9,
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "crossComponentResources": [
+          "{subscriptionID}"
+        ],
+        "parameters": [
+          {
+            "id": "72fffd48-8b49-4da2-95da-2102f3103a4b",
+            "version": "KqlParameterItem/1.0",
+            "name": "subscriptionID",
+            "type": 6,
+            "description": "Select Azure subscriptions for this scope",
+            "isRequired": true,
+            "isGlobal": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "typeSettings": {
+              "additionalResourceOptions": [
+                "value::all"
+              ],
+              "includeAll": true,
+              "showDefault": false
+            },
+            "timeContext": {
+              "durationMs": 86400000
+            },
+            "value": [
+              "value::all"
+            ],
+            "label": "Subscription"
+          },
+          {
+            "id": "4cd9dd15-69b2-4ae7-aadf-afa7a2f2e68e",
+            "version": "KqlParameterItem/1.0",
+            "name": "LogAnalyticsWorkspace",
+            "type": 5,
+            "isRequired": true,
+            "isGlobal": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "resources\r\n| where type == 'microsoft.operationalinsights/workspaces'\r\n| project id",
+            "crossComponentResources": [
+              "{subscriptionID}"
+            ],
+            "typeSettings": {
+              "resourceTypeFilter": {
+                "microsoft.operationalinsights/workspaces": true
+              },
+              "additionalResourceOptions": [
+                "value::all"
+              ],
+              "showDefault": false
+            },
+            "timeContext": {
+              "durationMs": 86400000
+            },
+            "defaultValue": "value::all",
+            "queryType": 1,
+            "resourceType": "microsoft.resourcegraph/resources",
+            "value": [
+              "value::all"
+            ]
+          },
+          {
+            "id": "ba6ad550-0ff3-4655-add7-8e08d51e1647",
+            "version": "KqlParameterItem/1.0",
+            "name": "TimeRange",
+            "type": 4,
+            "isRequired": true,
+            "isGlobal": true,
+            "typeSettings": {
+              "selectableValues": [
+                {
+                  "durationMs": 2592000000
+                },
+                {
+                  "durationMs": 5184000000
+                },
+                {
+                  "durationMs": 7776000000
+                }
+              ]
+            },
+            "timeContext": {
+              "durationMs": 86400000
+            },
+            "value": {
+              "durationMs": 2592000000
+            }
+          }
+        ],
+        "style": "formHorizontal",
+        "queryType": 1,
+        "resourceType": "microsoft.operationalinsights/workspaces"
+      },
+      "customWidth": "50",
+      "name": "globalfilterselection",
+      "styleSettings": {
+        "margin": "10px"
+      }
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "loadType": "always",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "<hr>\r\n\r\n#  ⚡ AVAILABILITY UPTIME SUMMARY "
+            },
+            "name": "text - 0"
+          },
+          {
+            "type": 9,
+            "content": {
+              "version": "KqlParameterItem/1.0",
+              "crossComponentResources": [
+                "{LogAnalyticsWorkspace}"
+              ],
+              "parameters": [
+                {
+                  "id": "c05becfd-994d-4d90-8551-36ccb0050d90",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "Availability_VM",
+                  "type": 1,
+                  "isGlobal": true,
+                  "query": "let StartTime = {TimeRange:start};\r\nlet EndTime = {TimeRange:end};\r\nlet SourceActivity =\r\n    AzureActivity\r\n    | where strcat(\"/subscriptions/\", SubscriptionId) in~ ({subscriptionID})\r\n    | where TimeGenerated between ((StartTime - 90d) .. EndTime);\r\nlet ActivityRows = toscalar(\r\n    SourceActivity\r\n    | summarize count());\r\nlet Inventory =\r\n    arg(\"\").Resources\r\n    | where strcat(\"/subscriptions/\", subscriptionId) in~ ({subscriptionID})\r\n    | where type in~ (\r\n        \"microsoft.compute/virtualmachines\",\r\n        \"microsoft.compute/virtualmachinescalesets\")\r\n    | extend JoinKey = 1\r\n    | join hint.remote=right kind=inner (\r\n        print JoinKey = 1\r\n    ) on JoinKey\r\n    | project\r\n        ResourceId = tolower(id),\r\n        ResourceName = name,\r\n        ResourceType = type;\r\nlet HealthEvents =\r\n    SourceActivity\r\n    | where CategoryValue in~ (\"ResourceHealth\", \"Resource Health\")\r\n    | extend ResourceIdLower = tolower(ResourceId)\r\n    | where\r\n        (\r\n            ResourceIdLower contains\r\n                \"/providers/microsoft.compute/virtualmachines/\"\r\n            and ResourceIdLower !contains\r\n                \"/virtualmachinescalesets/\"\r\n        )\r\n        or\r\n        (\r\n            ResourceIdLower contains\r\n                \"/providers/microsoft.compute/virtualmachinescalesets/\"\r\n            and ResourceIdLower !contains\r\n                \"/virtualmachines/\"\r\n        )\r\n    | extend P = iif(\r\n        isnotempty(tostring(Properties_d)),\r\n        Properties_d,\r\n        parse_json(Properties))\r\n    | extend State = tostring(\r\n        coalesce(\r\n            P.currentHealthStatus,\r\n            P.healthStatus))\r\n    | where State in~ (\r\n        \"Available\",\r\n        \"Unavailable\",\r\n        \"Degraded\",\r\n        \"Unknown\")\r\n    | project\r\n        ResourceId = ResourceIdLower,\r\n        EventTime = TimeGenerated,\r\n        State;\r\nunion\r\n    (\r\n        Inventory\r\n        | project\r\n            ResourceId,\r\n            EventTime = StartTime,\r\n            State = \"Available\",\r\n            Priority = 0\r\n    ),\r\n    (\r\n        HealthEvents\r\n        | where EventTime < StartTime\r\n        | summarize arg_max(EventTime, State) by ResourceId\r\n        | project\r\n            ResourceId,\r\n            EventTime = StartTime,\r\n            State,\r\n            Priority = 1\r\n    ),\r\n    (\r\n        HealthEvents\r\n        | where EventTime >= StartTime\r\n            and EventTime < EndTime\r\n        | project\r\n            ResourceId,\r\n            EventTime,\r\n            State,\r\n            Priority = 2\r\n    )\r\n| summarize arg_max(Priority, State) by ResourceId, EventTime\r\n| project ResourceId, EventTime, State\r\n| sort by ResourceId asc, EventTime asc\r\n| serialize\r\n| extend\r\n    NextResourceId = next(ResourceId),\r\n    NextEventTime = next(EventTime)\r\n| extend IntervalEnd = iff(\r\n    NextResourceId == ResourceId,\r\n    min_of(NextEventTime, EndTime),\r\n    EndTime)\r\n| where EventTime < EndTime\r\n| extend IntervalMinutes =\r\n    todouble(\r\n        datetime_diff(\r\n            \"second\",\r\n            IntervalEnd,\r\n            EventTime))\r\n        / 60.0\r\n| summarize\r\n    Resources = dcount(ResourceId),\r\n    EligibleMinutes = sum(IntervalMinutes),\r\n    UnavailableMinutes = sumif(\r\n        IntervalMinutes,\r\n        State =~ \"Unavailable\")\r\n| where ActivityRows > 0\r\n| extend Availability = iff(\r\n    EligibleMinutes > 0,\r\n    round(\r\n        100.0 *\r\n        (EligibleMinutes - UnavailableMinutes)\r\n        / EligibleMinutes,\r\n        4),\r\n    real(null))\r\n| project Availability",
+                  "crossComponentResources": [
+                    "{LogAnalyticsWorkspace}"
+                  ],
+                  "timeContext": {
+                    "durationMs": 0
+                  },
+                  "timeContextFromParameter": "TimeRange",
+                  "queryType": 0,
+                  "resourceType": "microsoft.operationalinsights/workspaces"
+                },
+                {
+                  "id": "e2c4fbfb-7fd7-4b65-b11f-3f7115513dfc",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "Availability_Storage",
+                  "type": 1,
+                  "isGlobal": true,
+                  "query": "let StartTime = {TimeRange:start};\r\nlet EndTime = {TimeRange:end};\r\nlet SourceActivity =\r\n    AzureActivity\r\n    | where strcat(\"/subscriptions/\", SubscriptionId) in~ ({subscriptionID})\r\n    | where TimeGenerated between ((StartTime - 90d) .. EndTime);\r\nlet ActivityRows = toscalar(\r\n    SourceActivity\r\n    | summarize count());\r\nlet Inventory =\r\n    arg(\"\").Resources\r\n    | where strcat(\"/subscriptions/\", subscriptionId) in~ ({subscriptionID})\r\n    | where type =~ \"microsoft.storage/storageaccounts\"\r\n    | extend JoinKey = 1\r\n    | join hint.remote=right kind=inner (\r\n        print JoinKey = 1\r\n    ) on JoinKey\r\n    | project\r\n        ResourceId = tolower(id),\r\n        ResourceName = name,\r\n        ResourceType = type;\r\nlet HealthEvents =\r\n    SourceActivity\r\n    | where CategoryValue in~ (\"ResourceHealth\", \"Resource Health\")\r\n    | extend ResourceIdLower = tolower(ResourceId)\r\n    | where ResourceId has \"/providers/Microsoft.Storage/storageAccounts/\"\r\n    | extend P = iif(\r\n        isnotempty(tostring(Properties_d)),\r\n        Properties_d,\r\n        parse_json(Properties))\r\n    | extend State = tostring(\r\n        coalesce(\r\n            P.currentHealthStatus,\r\n            P.healthStatus))\r\n    | where State in~ (\r\n        \"Available\",\r\n        \"Unavailable\",\r\n        \"Degraded\",\r\n        \"Unknown\")\r\n    | project\r\n        ResourceId = ResourceIdLower,\r\n        EventTime = TimeGenerated,\r\n        State;\r\nunion\r\n    (\r\n        Inventory\r\n        | project\r\n            ResourceId,\r\n            EventTime = StartTime,\r\n            State = \"Available\",\r\n            Priority = 0\r\n    ),\r\n    (\r\n        HealthEvents\r\n        | where EventTime < StartTime\r\n        | summarize arg_max(EventTime, State) by ResourceId\r\n        | project\r\n            ResourceId,\r\n            EventTime = StartTime,\r\n            State,\r\n            Priority = 1\r\n    ),\r\n    (\r\n        HealthEvents\r\n        | where EventTime >= StartTime\r\n            and EventTime < EndTime\r\n        | project\r\n            ResourceId,\r\n            EventTime,\r\n            State,\r\n            Priority = 2\r\n    )\r\n| summarize arg_max(Priority, State) by ResourceId, EventTime\r\n| project ResourceId, EventTime, State\r\n| sort by ResourceId asc, EventTime asc\r\n| serialize\r\n| extend\r\n    NextResourceId = next(ResourceId),\r\n    NextEventTime = next(EventTime)\r\n| extend IntervalEnd = iff(\r\n    NextResourceId == ResourceId,\r\n    min_of(NextEventTime, EndTime),\r\n    EndTime)\r\n| where EventTime < EndTime\r\n| extend IntervalMinutes =\r\n    todouble(\r\n        datetime_diff(\r\n            \"second\",\r\n            IntervalEnd,\r\n            EventTime))\r\n        / 60.0\r\n| summarize\r\n    Resources = dcount(ResourceId),\r\n    EligibleMinutes = sum(IntervalMinutes),\r\n    UnavailableMinutes = sumif(\r\n        IntervalMinutes,\r\n        State =~ \"Unavailable\")\r\n| where ActivityRows > 0\r\n| extend Availability = iff(\r\n    EligibleMinutes > 0,\r\n    round(\r\n        100.0 *\r\n        (EligibleMinutes - UnavailableMinutes)\r\n        / EligibleMinutes,\r\n        4),\r\n    real(null))\r\n| project Availability",
+                  "crossComponentResources": [
+                    "{LogAnalyticsWorkspace}"
+                  ],
+                  "timeContext": {
+                    "durationMs": 0
+                  },
+                  "timeContextFromParameter": "TimeRange",
+                  "queryType": 0,
+                  "resourceType": "microsoft.operationalinsights/workspaces"
+                },
+                {
+                  "id": "57717cf7-3aea-4760-a971-d5871ed69db7",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "Availability_Disks",
+                  "type": 1,
+                  "isGlobal": true,
+                  "query": "let StartTime = {TimeRange:start};\r\nlet EndTime = {TimeRange:end};\r\nlet SourceActivity =\r\n    AzureActivity\r\n    | where strcat(\"/subscriptions/\", SubscriptionId) in~ ({subscriptionID})\r\n    | where TimeGenerated between ((StartTime - 90d) .. EndTime);\r\nlet ActivityRows = toscalar(\r\n    SourceActivity\r\n    | summarize count());\r\nlet DiskInventory =\r\n    arg(\"\").Resources\r\n    | where strcat(\"/subscriptions/\", subscriptionId) in~ ({subscriptionID})\r\n    | where type =~ \"microsoft.compute/disks\"\r\n    | where isnotempty(managedBy)\r\n    | extend JoinKey = 1\r\n    | join hint.remote=right kind=inner (\r\n        print JoinKey = 1\r\n    ) on JoinKey\r\n    | project\r\n        DiskId = tolower(id),\r\n        DiskName = name,\r\n        VmId = tolower(tostring(managedBy));\r\nlet VmHealthEvents =\r\n    SourceActivity\r\n    | where CategoryValue in~ (\"ResourceHealth\", \"Resource Health\")\r\n    | extend ResourceIdLower = tolower(ResourceId)\r\n    | where ResourceIdLower contains\r\n        \"/providers/microsoft.compute/virtualmachines/\"\r\n    | where ResourceIdLower !contains\r\n        \"/virtualmachinescalesets/\"\r\n    | extend P = iif(\r\n        isnotempty(tostring(Properties_d)),\r\n        Properties_d,\r\n        parse_json(Properties))\r\n    | extend State = tostring(\r\n        coalesce(\r\n            P.currentHealthStatus,\r\n            P.healthStatus))\r\n    | where State in~ (\r\n        \"Available\",\r\n        \"Unavailable\",\r\n        \"Degraded\",\r\n        \"Unknown\")\r\n    | project\r\n        VmId = ResourceIdLower,\r\n        EventTime = TimeGenerated,\r\n        State;\r\nlet DiskHealthEvents =\r\n    VmHealthEvents\r\n    | join hint.remote=left kind=inner (\r\n        DiskInventory\r\n        | project DiskId, VmId\r\n    ) on VmId\r\n    | project\r\n        DiskId,\r\n        EventTime,\r\n        State;\r\nunion\r\n    (\r\n        DiskInventory\r\n        | project\r\n            ResourceId = DiskId,\r\n            EventTime = StartTime,\r\n            State = \"Available\",\r\n            Priority = 0\r\n    ),\r\n    (\r\n        DiskHealthEvents\r\n        | where EventTime < StartTime\r\n        | summarize arg_max(EventTime, State) by DiskId\r\n        | project\r\n            ResourceId = DiskId,\r\n            EventTime = StartTime,\r\n            State,\r\n            Priority = 1\r\n    ),\r\n    (\r\n        DiskHealthEvents\r\n        | where EventTime >= StartTime\r\n            and EventTime < EndTime\r\n        | project\r\n            ResourceId = DiskId,\r\n            EventTime,\r\n            State,\r\n            Priority = 2\r\n    )\r\n| summarize arg_max(Priority, State) by ResourceId, EventTime\r\n| project ResourceId, EventTime, State\r\n| sort by ResourceId asc, EventTime asc\r\n| serialize\r\n| extend\r\n    NextResourceId = next(ResourceId),\r\n    NextEventTime = next(EventTime)\r\n| extend IntervalEnd = iff(\r\n    NextResourceId == ResourceId,\r\n    min_of(NextEventTime, EndTime),\r\n    EndTime)\r\n| where EventTime < EndTime\r\n| extend IntervalMinutes =\r\n    todouble(\r\n        datetime_diff(\r\n            \"second\",\r\n            IntervalEnd,\r\n            EventTime))\r\n        / 60.0\r\n| summarize\r\n    Resources = dcount(ResourceId),\r\n    EligibleMinutes = sum(IntervalMinutes),\r\n    UnavailableMinutes = sumif(\r\n        IntervalMinutes,\r\n        State =~ \"Unavailable\")\r\n| where ActivityRows > 0\r\n| extend\r\n    Category = \"Managed disks (VM proxy)\",\r\n    Availability = iff(\r\n        EligibleMinutes > 0,\r\n        round(\r\n            100.0 *\r\n            (EligibleMinutes - UnavailableMinutes)\r\n            / EligibleMinutes,\r\n            4),\r\n        real(null))\r\n| project\r\n    Availability\r\n",
+                  "crossComponentResources": [
+                    "{LogAnalyticsWorkspace}"
+                  ],
+                  "timeContext": {
+                    "durationMs": 0
+                  },
+                  "timeContextFromParameter": "TimeRange",
+                  "queryType": 0,
+                  "resourceType": "microsoft.operationalinsights/workspaces"
+                },
+                {
+                  "id": "409fdbf3-24e0-4231-b8e8-43c5825028b7",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "Availability_SQL",
+                  "type": 1,
+                  "isGlobal": true,
+                  "query": "let StartTime = {TimeRange:start};\r\nlet EndTime = {TimeRange:end};\r\nlet SourceActivity =\r\n    AzureActivity\r\n    | where strcat(\"/subscriptions/\", SubscriptionId) in~ ({subscriptionID})\r\n    | where TimeGenerated between ((StartTime - 90d) .. EndTime);\r\nlet ActivityRows = toscalar(\r\n    SourceActivity\r\n    | summarize count());\r\nlet Inventory =\r\n    arg(\"\").Resources\r\n    | where strcat(\"/subscriptions/\", subscriptionId) in~ ({subscriptionID})\r\n    | where type in~ (\r\n        \"microsoft.sql/servers/databases\",\r\n        \"microsoft.sql/managedinstances\")\r\n    | where not(\r\n        type =~ \"microsoft.sql/servers/databases\"\r\n        and name =~ \"master\")\r\n    | extend JoinKey = 1\r\n    | join hint.remote=right kind=inner (\r\n        print JoinKey = 1\r\n    ) on JoinKey\r\n    | project\r\n        ResourceId = tolower(id),\r\n        ResourceName = name,\r\n        ResourceType = type;\r\nlet HealthEvents =\r\n    SourceActivity\r\n    | where CategoryValue in~ (\"ResourceHealth\", \"Resource Health\")\r\n    | extend ResourceIdLower = tolower(ResourceId)\r\n    | where\r\n        (\r\n            ResourceIdLower contains \"/providers/microsoft.sql/servers/\"\r\n            and ResourceIdLower contains \"/databases/\"\r\n            and not(ResourceIdLower endswith \"/master\")\r\n        )\r\n        or\r\n        (\r\n            ResourceIdLower contains \"/providers/microsoft.sql/managedinstances/\"\r\n            and not(ResourceIdLower contains \"/databases/\")\r\n        )\r\n    | extend P = iif(\r\n        isnotempty(tostring(Properties_d)),\r\n        Properties_d,\r\n        parse_json(Properties))\r\n    | extend State = tostring(\r\n        coalesce(\r\n            P.currentHealthStatus,\r\n            P.healthStatus))\r\n    | where State in~ (\r\n        \"Available\",\r\n        \"Unavailable\",\r\n        \"Degraded\",\r\n        \"Unknown\")\r\n    | project\r\n        ResourceId = ResourceIdLower,\r\n        EventTime = TimeGenerated,\r\n        State;\r\nunion\r\n    (\r\n        Inventory\r\n        | project\r\n            ResourceId,\r\n            EventTime = StartTime,\r\n            State = \"Available\",\r\n            Priority = 0\r\n    ),\r\n    (\r\n        HealthEvents\r\n        | where EventTime < StartTime\r\n        | summarize arg_max(EventTime, State) by ResourceId\r\n        | project\r\n            ResourceId,\r\n            EventTime = StartTime,\r\n            State,\r\n            Priority = 1\r\n    ),\r\n    (\r\n        HealthEvents\r\n        | where EventTime >= StartTime\r\n            and EventTime < EndTime\r\n        | project\r\n            ResourceId,\r\n            EventTime,\r\n            State,\r\n            Priority = 2\r\n    )\r\n| summarize arg_max(Priority, State) by ResourceId, EventTime\r\n| project ResourceId, EventTime, State\r\n| sort by ResourceId asc, EventTime asc\r\n| serialize\r\n| extend\r\n    NextResourceId = next(ResourceId),\r\n    NextEventTime = next(EventTime)\r\n| extend IntervalEnd = iff(\r\n    NextResourceId == ResourceId,\r\n    min_of(NextEventTime, EndTime),\r\n    EndTime)\r\n| where EventTime < EndTime\r\n| extend IntervalMinutes =\r\n    todouble(\r\n        datetime_diff(\r\n            \"second\",\r\n            IntervalEnd,\r\n            EventTime))\r\n        / 60.0\r\n| summarize\r\n    Resources = dcount(ResourceId),\r\n    EligibleMinutes = sum(IntervalMinutes),\r\n    UnavailableMinutes = sumif(\r\n        IntervalMinutes,\r\n        State =~ \"Unavailable\")\r\n| where ActivityRows > 0\r\n| extend Availability = iff(\r\n    EligibleMinutes > 0,\r\n    round(\r\n        100.0 *\r\n        (EligibleMinutes - UnavailableMinutes)\r\n        / EligibleMinutes,\r\n        4),\r\n    real(null))\r\n| project Availability\r\n",
+                  "crossComponentResources": [
+                    "{LogAnalyticsWorkspace}"
+                  ],
+                  "timeContext": {
+                    "durationMs": 0
+                  },
+                  "timeContextFromParameter": "TimeRange",
+                  "queryType": 0,
+                  "resourceType": "microsoft.operationalinsights/workspaces"
+                },
+                {
+                  "id": "afd4cc34-7a45-42af-84bf-ab139d3f7273",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "Availability_Apps",
+                  "type": 1,
+                  "isGlobal": true,
+                  "query": "let StartTime = {TimeRange:start};\r\nlet EndTime = {TimeRange:end};\r\nlet SourceActivity =\r\n    AzureActivity\r\n    | where strcat(\"/subscriptions/\", SubscriptionId) in~ ({subscriptionID})\r\n    | where TimeGenerated between ((StartTime - 90d) .. EndTime);\r\nlet ActivityRows = toscalar(\r\n    SourceActivity\r\n    | summarize count());\r\nlet Inventory =\r\n    arg(\"\").Resources\r\n    | where strcat(\"/subscriptions/\", subscriptionId) in~ ({subscriptionID})\r\n    | where type =~ \"microsoft.web/sites\"\r\n    | extend JoinKey = 1\r\n    | join hint.remote=right kind=inner (\r\n        print JoinKey = 1\r\n    ) on JoinKey\r\n    | project\r\n        ResourceId = tolower(id),\r\n        ResourceName = name,\r\n        WorkloadType = case(\r\n            tolower(tostring(kind)) contains \"functionapp\",\r\n                \"Azure Functions\",\r\n            tolower(tostring(kind)) contains \"workflowapp\",\r\n                \"Logic Apps Standard\",\r\n            \"App Service\");\r\nlet HealthEvents =\r\n    SourceActivity\r\n    | where CategoryValue in~ (\"ResourceHealth\", \"Resource Health\")\r\n    | extend ResourceIdLower = tolower(ResourceId)\r\n    | where ResourceIdLower contains \"/providers/microsoft.web/sites/\"\r\n    | where ResourceIdLower !contains \"/slots/\"\r\n    | extend P = iif(\r\n        isnotempty(tostring(Properties_d)),\r\n        Properties_d,\r\n        parse_json(Properties))\r\n    | extend State = tostring(\r\n        coalesce(\r\n            P.currentHealthStatus,\r\n            P.healthStatus))\r\n    | where State in~ (\r\n        \"Available\",\r\n        \"Unavailable\",\r\n        \"Degraded\",\r\n        \"Unknown\")\r\n    | project\r\n        ResourceId = ResourceIdLower,\r\n        EventTime = TimeGenerated,\r\n        State;\r\nunion\r\n    (\r\n        Inventory\r\n        | project\r\n            ResourceId,\r\n            EventTime = StartTime,\r\n            State = \"Available\",\r\n            Priority = 0\r\n    ),\r\n    (\r\n        HealthEvents\r\n        | where EventTime < StartTime\r\n        | summarize arg_max(EventTime, State) by ResourceId\r\n        | project\r\n            ResourceId,\r\n            EventTime = StartTime,\r\n            State,\r\n            Priority = 1\r\n    ),\r\n    (\r\n        HealthEvents\r\n        | where EventTime >= StartTime\r\n            and EventTime < EndTime\r\n        | project\r\n            ResourceId,\r\n            EventTime,\r\n            State,\r\n            Priority = 2\r\n    )\r\n| summarize arg_max(Priority, State) by ResourceId, EventTime\r\n| project ResourceId, EventTime, State\r\n| sort by ResourceId asc, EventTime asc\r\n| serialize\r\n| extend\r\n    NextResourceId = next(ResourceId),\r\n    NextEventTime = next(EventTime)\r\n| extend IntervalEnd = iff(\r\n    NextResourceId == ResourceId,\r\n    min_of(NextEventTime, EndTime),\r\n    EndTime)\r\n| where EventTime < EndTime\r\n| extend IntervalMinutes =\r\n    todouble(\r\n        datetime_diff(\r\n            \"second\",\r\n            IntervalEnd,\r\n            EventTime))\r\n        / 60.0\r\n| summarize\r\n    Resources = dcount(ResourceId),\r\n    EligibleMinutes = sum(IntervalMinutes),\r\n    UnavailableMinutes = sumif(\r\n        IntervalMinutes,\r\n        State =~ \"Unavailable\")\r\n| where ActivityRows > 0\r\n| extend Availability = iff(\r\n    EligibleMinutes > 0,\r\n    round(\r\n        100.0 *\r\n        (EligibleMinutes - UnavailableMinutes)\r\n        / EligibleMinutes,\r\n        4),\r\n    real(null))\r\n| project Availability\r\n",
+                  "crossComponentResources": [
+                    "{LogAnalyticsWorkspace}"
+                  ],
+                  "timeContext": {
+                    "durationMs": 0
+                  },
+                  "timeContextFromParameter": "TimeRange",
+                  "queryType": 0,
+                  "resourceType": "microsoft.operationalinsights/workspaces"
+                }
+              ],
+              "style": "above",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces"
+            },
+            "conditionalVisibility": {
+              "parameterName": "Is_Visible",
+              "comparison": "isEqualTo",
+              "value": "Visible"
+            },
+            "name": "parameters - 2"
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "\r\n| Availability %           | Label             |  Services                                        |  Target SLA   |\r\n| ------------------------ | ----------------- | ------------------------------------------------ | ------------- |\r\n|  {Availability_VM}       |  \"Compute\"        |  Virtual Machines, Virtual Machine Scale-sets    |  Above 99.9%  |\r\n|  {Availability_Storage}  |  \"Storage\"        |  Storage Accounts                                |  Above 99.9%  |\r\n|  {Availability_Disks}    |  \"Disks\"          |  Managed Disks                                   |  Above 99.9%  |\r\n|  {Availability_SQL}      |  \"SQL Databases\"  |  SQL DB, SQL Managed Instnace                    |  Above 99.9%  |\r\n|  {Availability_Apps}     | \"Apps/Web\"        |  App Service, Functions and Logic Apps Standard  |  Above 99.9%  |\r\n"
+            },
+            "name": "table_summary"
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "<hr>\r\n\r\n### Availability Detail\r\n\r\nAzureActivity contains Azure Activity Log records exported into Log Analytics.<br>\r\nFor this Workbook, we use records where: `CategoryValue =~ \"ResourceHealth\"`.<br>\r\nThese records describe changes in Azure’s assessment of an individual resource’s health.<br>\r\n<br>\r\n\r\n#### Health states\r\n\r\n| State | Meaning |\r\n| -----| -----|\r\n|  ✅ Available\t| Azure detects no issue affecting the resource\t|\r\n| ⛔ Unavailable |\tAzure detects that the resource cannot provide its expected service\t|\r\n| ⚠️ Degraded | The resource remains available but has reduced performance or functionality\t|\r\n| ⬜ Unknown | Azure does not currently have enough health information\t|\r\n\r\n#### Pre-requities\r\nActivityLog data needs to be enabled to flow through to a Log Analytics Workspace.<br>\r\nThis is the source of truth for this Workbook to query and surface relevant data.\r\n\r\n\r\n"
+            },
+            "name": "text - 3"
+          }
+        ],
+        "exportParameters": true
+      },
+      "name": "Overview"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "<HR>\r\n\r\n# Detailed Availability"
+      },
+      "name": "text - 5"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "loadType": "always",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "## Compute",
+              "style": "info"
+            },
+            "customWidth": "15",
+            "showPin": false,
+            "name": "Compute_Label",
+            "styleSettings": {
+              "margin": "36px"
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let StartTime = {TimeRange:start};\r\nlet EndTime = {TimeRange:end};\r\nlet SourceActivity =\r\n    AzureActivity\r\n    | where strcat(\"/subscriptions/\", SubscriptionId) in~ ({subscriptionID})\r\n    | where TimeGenerated between ((StartTime - 90d) .. EndTime);\r\nlet ActivityRows = toscalar(\r\n    SourceActivity\r\n    | summarize count());\r\nlet Inventory =\r\n    arg(\"\").Resources\r\n    | where strcat(\"/subscriptions/\", subscriptionId) in~ ({subscriptionID})\r\n    | where type in~ (\r\n        \"microsoft.compute/virtualmachines\",\r\n        \"microsoft.compute/virtualmachinescalesets\")\r\n    | extend JoinKey = 1\r\n    | join hint.remote=right kind=inner (\r\n        print JoinKey = 1\r\n    ) on JoinKey\r\n    | project\r\n        ResourceId = tolower(id),\r\n        ResourceName = name,\r\n        ResourceType = type;\r\nlet HealthEvents =\r\n    SourceActivity\r\n    | where CategoryValue in~ (\"ResourceHealth\", \"Resource Health\")\r\n    | extend ResourceIdLower = tolower(ResourceId)\r\n    | where\r\n        (\r\n            ResourceIdLower contains\r\n                \"/providers/microsoft.compute/virtualmachines/\"\r\n            and ResourceIdLower !contains\r\n                \"/virtualmachinescalesets/\"\r\n        )\r\n        or\r\n        (\r\n            ResourceIdLower contains\r\n                \"/providers/microsoft.compute/virtualmachinescalesets/\"\r\n            and ResourceIdLower !contains\r\n                \"/virtualmachines/\"\r\n        )\r\n    | extend P = iif(\r\n        isnotempty(tostring(Properties_d)),\r\n        Properties_d,\r\n        parse_json(Properties))\r\n    | extend State = tostring(\r\n        coalesce(\r\n            P.currentHealthStatus,\r\n            P.healthStatus))\r\n    | where State in~ (\r\n        \"Available\",\r\n        \"Unavailable\",\r\n        \"Degraded\",\r\n        \"Unknown\")\r\n    | project\r\n        ResourceId = ResourceIdLower,\r\n        EventTime = TimeGenerated,\r\n        State;\r\nunion\r\n    (\r\n        Inventory\r\n        | project\r\n            ResourceId,\r\n            EventTime = StartTime,\r\n            State = \"Available\",\r\n            Priority = 0\r\n    ),\r\n    (\r\n        HealthEvents\r\n        | where EventTime < StartTime\r\n        | summarize arg_max(EventTime, State) by ResourceId\r\n        | project\r\n            ResourceId,\r\n            EventTime = StartTime,\r\n            State,\r\n            Priority = 1\r\n    ),\r\n    (\r\n        HealthEvents\r\n        | where EventTime >= StartTime\r\n            and EventTime < EndTime\r\n        | project\r\n            ResourceId,\r\n            EventTime,\r\n            State,\r\n            Priority = 2\r\n    )\r\n| summarize arg_max(Priority, State) by ResourceId, EventTime\r\n| project ResourceId, EventTime, State\r\n| sort by ResourceId asc, EventTime asc\r\n| serialize\r\n| extend\r\n    NextResourceId = next(ResourceId),\r\n    NextEventTime = next(EventTime)\r\n| extend IntervalEnd = iff(\r\n    NextResourceId == ResourceId,\r\n    min_of(NextEventTime, EndTime),\r\n    EndTime)\r\n| where EventTime < EndTime\r\n| extend IntervalMinutes =\r\n    todouble(\r\n        datetime_diff(\r\n            \"second\",\r\n            IntervalEnd,\r\n            EventTime))\r\n        / 60.0\r\n| summarize\r\n    Resources = dcount(ResourceId),\r\n    EligibleMinutes = sum(IntervalMinutes),\r\n    UnavailableMinutes = sumif(\r\n        IntervalMinutes,\r\n        State =~ \"Unavailable\")\r\n| where ActivityRows > 0\r\n| extend\r\n    Category = \"Virtual machines and VM scale sets\",\r\n    Availability = iff(\r\n        EligibleMinutes > 0,\r\n        round(\r\n            100.0 *\r\n            (EligibleMinutes - UnavailableMinutes)\r\n            / EligibleMinutes,\r\n            4),\r\n        real(null))\r\n| project\r\n    Category,\r\n    Resources,\r\n    EligibleMinutes = round(EligibleMinutes, 0),\r\n    UnavailableMinutes = round(UnavailableMinutes, 2),\r\n    Availability\r\n",
+              "size": 4,
+              "timeContextFromParameter": "TimeRange",
+              "showExportToExcel": true,
+              "exportToExcelOptions": "all",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{LogAnalyticsWorkspace}"
+              ],
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Availability",
+                    "formatter": 0,
+                    "numberFormat": {
+                      "unit": 1,
+                      "options": {
+                        "style": "decimal"
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "customWidth": "85",
+            "name": "Compute_v2",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "## Storage",
+              "style": "info"
+            },
+            "customWidth": "15",
+            "name": "Storage_Label",
+            "styleSettings": {
+              "margin": "36px"
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let StartTime = {TimeRange:start};\r\nlet EndTime = {TimeRange:end};\r\nlet SourceActivity =\r\n    AzureActivity\r\n    | where strcat(\"/subscriptions/\", SubscriptionId) in~ ({subscriptionID})\r\n    | where TimeGenerated between ((StartTime - 90d) .. EndTime);\r\nlet ActivityRows = toscalar(\r\n    SourceActivity\r\n    | summarize count());\r\nlet Inventory =\r\n    arg(\"\").Resources\r\n    | where strcat(\"/subscriptions/\", subscriptionId) in~ ({subscriptionID})\r\n    | where type =~ \"microsoft.storage/storageaccounts\"\r\n    | extend JoinKey = 1\r\n    | join hint.remote=right kind=inner (\r\n        print JoinKey = 1\r\n    ) on JoinKey\r\n    | project\r\n        ResourceId = tolower(id),\r\n        ResourceName = name;\r\nlet HealthEvents =\r\n    SourceActivity\r\n    | where CategoryValue in~ (\"ResourceHealth\", \"Resource Health\")\r\n    | extend ResourceIdLower = tolower(ResourceId)\r\n    | where ResourceIdLower contains\r\n        \"/providers/microsoft.storage/storageaccounts/\"\r\n    | extend P = iif(\r\n        isnotempty(tostring(Properties_d)),\r\n        Properties_d,\r\n        parse_json(Properties))\r\n    | extend State = tostring(\r\n        coalesce(\r\n            P.currentHealthStatus,\r\n            P.healthStatus))\r\n    | where State in~ (\r\n        \"Available\",\r\n        \"Unavailable\",\r\n        \"Degraded\",\r\n        \"Unknown\")\r\n    | project\r\n        ResourceId = ResourceIdLower,\r\n        EventTime = TimeGenerated,\r\n        State;\r\nunion\r\n    (\r\n        Inventory\r\n        | project\r\n            ResourceId,\r\n            EventTime = StartTime,\r\n            State = \"Available\",\r\n            Priority = 0\r\n    ),\r\n    (\r\n        HealthEvents\r\n        | where EventTime < StartTime\r\n        | summarize arg_max(EventTime, State) by ResourceId\r\n        | project\r\n            ResourceId,\r\n            EventTime = StartTime,\r\n            State,\r\n            Priority = 1\r\n    ),\r\n    (\r\n        HealthEvents\r\n        | where EventTime >= StartTime\r\n            and EventTime < EndTime\r\n        | project\r\n            ResourceId,\r\n            EventTime,\r\n            State,\r\n            Priority = 2\r\n    )\r\n| summarize arg_max(Priority, State) by ResourceId, EventTime\r\n| project ResourceId, EventTime, State\r\n| sort by ResourceId asc, EventTime asc\r\n| serialize\r\n| extend\r\n    NextResourceId = next(ResourceId),\r\n    NextEventTime = next(EventTime)\r\n| extend IntervalEnd = iff(\r\n    NextResourceId == ResourceId,\r\n    min_of(NextEventTime, EndTime),\r\n    EndTime)\r\n| where EventTime < EndTime\r\n| extend IntervalMinutes =\r\n    todouble(\r\n        datetime_diff(\r\n            \"second\",\r\n            IntervalEnd,\r\n            EventTime))\r\n        / 60.0\r\n| summarize\r\n    Resources = dcount(ResourceId),\r\n    EligibleMinutes = sum(IntervalMinutes),\r\n    UnavailableMinutes = sumif(\r\n        IntervalMinutes,\r\n        State =~ \"Unavailable\")\r\n| where ActivityRows > 0\r\n| extend\r\n    Category = \"Storage accounts\",\r\n    Availability = iff(\r\n        EligibleMinutes > 0,\r\n        round(\r\n            100.0 *\r\n            (EligibleMinutes - UnavailableMinutes)\r\n            / EligibleMinutes,\r\n            4),\r\n        real(null))\r\n| project\r\n    Category,\r\n    Resources,\r\n    EligibleMinutes = round(EligibleMinutes, 0),\r\n    UnavailableMinutes = round(UnavailableMinutes, 2),\r\n    Availability\r\n",
+              "size": 4,
+              "timeContextFromParameter": "TimeRange",
+              "showExportToExcel": true,
+              "exportToExcelOptions": "all",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{LogAnalyticsWorkspace}"
+              ],
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Availability",
+                    "formatter": 0,
+                    "numberFormat": {
+                      "unit": 1,
+                      "options": {
+                        "style": "decimal"
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "customWidth": "85",
+            "name": "Storage_v2",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "## Disks",
+              "style": "info"
+            },
+            "customWidth": "15",
+            "name": "Disks_Label",
+            "styleSettings": {
+              "margin": "36px"
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let StartTime = {TimeRange:start};\r\nlet EndTime = {TimeRange:end};\r\nlet SourceActivity =\r\n    AzureActivity\r\n    | where strcat(\"/subscriptions/\", SubscriptionId) in~ ({subscriptionID})\r\n    | where TimeGenerated between ((StartTime - 90d) .. EndTime);\r\nlet ActivityRows = toscalar(\r\n    SourceActivity\r\n    | summarize count());\r\nlet DiskInventory =\r\n    arg(\"\").Resources\r\n    | where strcat(\"/subscriptions/\", subscriptionId) in~ ({subscriptionID})\r\n    | where type =~ \"microsoft.compute/disks\"\r\n    | where isnotempty(managedBy)\r\n    | extend JoinKey = 1\r\n    | join hint.remote=right kind=inner (\r\n        print JoinKey = 1\r\n    ) on JoinKey\r\n    | project\r\n        DiskId = tolower(id),\r\n        DiskName = name,\r\n        VmId = tolower(tostring(managedBy));\r\nlet VmHealthEvents =\r\n    SourceActivity\r\n    | where CategoryValue in~ (\"ResourceHealth\", \"Resource Health\")\r\n    | extend ResourceIdLower = tolower(ResourceId)\r\n    | where ResourceIdLower contains\r\n        \"/providers/microsoft.compute/virtualmachines/\"\r\n    | where ResourceIdLower !contains\r\n        \"/virtualmachinescalesets/\"\r\n    | extend P = iif(\r\n        isnotempty(tostring(Properties_d)),\r\n        Properties_d,\r\n        parse_json(Properties))\r\n    | extend State = tostring(\r\n        coalesce(\r\n            P.currentHealthStatus,\r\n            P.healthStatus))\r\n    | where State in~ (\r\n        \"Available\",\r\n        \"Unavailable\",\r\n        \"Degraded\",\r\n        \"Unknown\")\r\n    | project\r\n        VmId = ResourceIdLower,\r\n        EventTime = TimeGenerated,\r\n        State;\r\nlet DiskHealthEvents =\r\n    VmHealthEvents\r\n    | join hint.remote=left kind=inner (\r\n        DiskInventory\r\n        | project DiskId, VmId\r\n    ) on VmId\r\n    | project\r\n        DiskId,\r\n        EventTime,\r\n        State;\r\nunion\r\n    (\r\n        DiskInventory\r\n        | project\r\n            ResourceId = DiskId,\r\n            EventTime = StartTime,\r\n            State = \"Available\",\r\n            Priority = 0\r\n    ),\r\n    (\r\n        DiskHealthEvents\r\n        | where EventTime < StartTime\r\n        | summarize arg_max(EventTime, State) by DiskId\r\n        | project\r\n            ResourceId = DiskId,\r\n            EventTime = StartTime,\r\n            State,\r\n            Priority = 1\r\n    ),\r\n    (\r\n        DiskHealthEvents\r\n        | where EventTime >= StartTime\r\n            and EventTime < EndTime\r\n        | project\r\n            ResourceId = DiskId,\r\n            EventTime,\r\n            State,\r\n            Priority = 2\r\n    )\r\n| summarize arg_max(Priority, State) by ResourceId, EventTime\r\n| project ResourceId, EventTime, State\r\n| sort by ResourceId asc, EventTime asc\r\n| serialize\r\n| extend\r\n    NextResourceId = next(ResourceId),\r\n    NextEventTime = next(EventTime)\r\n| extend IntervalEnd = iff(\r\n    NextResourceId == ResourceId,\r\n    min_of(NextEventTime, EndTime),\r\n    EndTime)\r\n| where EventTime < EndTime\r\n| extend IntervalMinutes =\r\n    todouble(\r\n        datetime_diff(\r\n            \"second\",\r\n            IntervalEnd,\r\n            EventTime))\r\n        / 60.0\r\n| summarize\r\n    Resources = dcount(ResourceId),\r\n    EligibleMinutes = sum(IntervalMinutes),\r\n    UnavailableMinutes = sumif(\r\n        IntervalMinutes,\r\n        State =~ \"Unavailable\")\r\n| where ActivityRows > 0\r\n| extend\r\n    Category = \"Managed disks (VM proxy)\",\r\n    Availability = iff(\r\n        EligibleMinutes > 0,\r\n        round(\r\n            100.0 *\r\n            (EligibleMinutes - UnavailableMinutes)\r\n            / EligibleMinutes,\r\n            4),\r\n        real(null))\r\n| project\r\n    Category,\r\n    Resources,\r\n    EligibleMinutes = round(EligibleMinutes, 0),\r\n    UnavailableMinutes = round(UnavailableMinutes, 2),\r\n    Availability\r\n",
+              "size": 4,
+              "timeContextFromParameter": "TimeRange",
+              "showExportToExcel": true,
+              "exportToExcelOptions": "all",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{LogAnalyticsWorkspace}"
+              ],
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Availability",
+                    "formatter": 0,
+                    "numberFormat": {
+                      "unit": 1,
+                      "options": {
+                        "style": "decimal"
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "customWidth": "85",
+            "name": "Disks",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "## Databases",
+              "style": "info"
+            },
+            "customWidth": "15",
+            "name": "Databases_Label",
+            "styleSettings": {
+              "margin": "36px"
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let StartTime = {TimeRange:start};\r\nlet EndTime = {TimeRange:end};\r\nlet SourceActivity =\r\n    AzureActivity\r\n    | where strcat(\"/subscriptions/\", SubscriptionId) in~ ({subscriptionID})\r\n    | where TimeGenerated between ((StartTime - 90d) .. EndTime);\r\nlet ActivityRows = toscalar(\r\n    SourceActivity\r\n    | summarize count());\r\nlet Inventory =\r\n    arg(\"\").Resources\r\n    | where strcat(\"/subscriptions/\", subscriptionId) in~ ({subscriptionID})\r\n    | where type in~ (\r\n        \"microsoft.sql/servers/databases\",\r\n        \"microsoft.sql/managedinstances\")\r\n    | where not(\r\n        type =~ \"microsoft.sql/servers/databases\"\r\n        and name =~ \"master\")\r\n    | extend JoinKey = 1\r\n    | join hint.remote=right kind=inner (\r\n        print JoinKey = 1\r\n    ) on JoinKey\r\n    | project\r\n        ResourceId = tolower(id),\r\n        ResourceName = name,\r\n        ResourceType = type;\r\nlet HealthEvents =\r\n    SourceActivity\r\n    | where CategoryValue in~ (\"ResourceHealth\", \"Resource Health\")\r\n    | extend ResourceIdLower = tolower(ResourceId)\r\n    | where\r\n        (\r\n            ResourceIdLower contains\r\n                \"/providers/microsoft.sql/servers/\"\r\n            and ResourceIdLower contains \"/databases/\"\r\n            and not(ResourceIdLower endswith \"/master\")\r\n        )\r\n        or\r\n        (\r\n            ResourceIdLower contains\r\n                \"/providers/microsoft.sql/managedinstances/\"\r\n            and not(ResourceIdLower contains \"/databases/\")\r\n        )\r\n    | extend P = iif(\r\n        isnotempty(tostring(Properties_d)),\r\n        Properties_d,\r\n        parse_json(Properties))\r\n    | extend State = tostring(\r\n        coalesce(\r\n            P.currentHealthStatus,\r\n            P.healthStatus))\r\n    | where State in~ (\r\n        \"Available\",\r\n        \"Unavailable\",\r\n        \"Degraded\",\r\n        \"Unknown\")\r\n    | project\r\n        ResourceId = ResourceIdLower,\r\n        EventTime = TimeGenerated,\r\n        State;\r\nunion\r\n    (\r\n        Inventory\r\n        | project\r\n            ResourceId,\r\n            EventTime = StartTime,\r\n            State = \"Available\",\r\n            Priority = 0\r\n    ),\r\n    (\r\n        HealthEvents\r\n        | where EventTime < StartTime\r\n        | summarize arg_max(EventTime, State) by ResourceId\r\n        | project\r\n            ResourceId,\r\n            EventTime = StartTime,\r\n            State,\r\n            Priority = 1\r\n    ),\r\n    (\r\n        HealthEvents\r\n        | where EventTime >= StartTime\r\n            and EventTime < EndTime\r\n        | project\r\n            ResourceId,\r\n            EventTime,\r\n            State,\r\n            Priority = 2\r\n    )\r\n| summarize arg_max(Priority, State) by ResourceId, EventTime\r\n| project ResourceId, EventTime, State\r\n| sort by ResourceId asc, EventTime asc\r\n| serialize\r\n| extend\r\n    NextResourceId = next(ResourceId),\r\n    NextEventTime = next(EventTime)\r\n| extend IntervalEnd = iff(\r\n    NextResourceId == ResourceId,\r\n    min_of(NextEventTime, EndTime),\r\n    EndTime)\r\n| where EventTime < EndTime\r\n| extend IntervalMinutes =\r\n    todouble(\r\n        datetime_diff(\r\n            \"second\",\r\n            IntervalEnd,\r\n            EventTime))\r\n        / 60.0\r\n| summarize\r\n    Resources = dcount(ResourceId),\r\n    EligibleMinutes = sum(IntervalMinutes),\r\n    UnavailableMinutes = sumif(\r\n        IntervalMinutes,\r\n        State =~ \"Unavailable\")\r\n| where ActivityRows > 0\r\n| extend\r\n    Category = \"Azure SQL DB and SQL MI\",\r\n    Availability = iff(\r\n        EligibleMinutes > 0,\r\n        round(\r\n            100.0 *\r\n            (EligibleMinutes - UnavailableMinutes)\r\n            / EligibleMinutes,\r\n            4),\r\n        real(null))\r\n| project\r\n    Category,\r\n    Resources,\r\n    EligibleMinutes = round(EligibleMinutes, 0),\r\n    UnavailableMinutes = round(UnavailableMinutes, 2),\r\n    Availability\r\n",
+              "size": 4,
+              "timeContextFromParameter": "TimeRange",
+              "showExportToExcel": true,
+              "exportToExcelOptions": "all",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{LogAnalyticsWorkspace}"
+              ],
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Availability",
+                    "formatter": 0,
+                    "numberFormat": {
+                      "unit": 1,
+                      "options": {
+                        "style": "decimal"
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "customWidth": "85",
+            "name": "Databases",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "## Apps",
+              "style": "info"
+            },
+            "customWidth": "15",
+            "name": "Apps_Label",
+            "styleSettings": {
+              "margin": "36px"
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let StartTime = {TimeRange:start};\r\nlet EndTime = {TimeRange:end};\r\nlet SourceActivity =\r\n    AzureActivity\r\n    | where strcat(\"/subscriptions/\", SubscriptionId) in~ ({subscriptionID})\r\n    | where TimeGenerated between ((StartTime - 90d) .. EndTime);\r\nlet ActivityRows = toscalar(\r\n    SourceActivity\r\n    | summarize count());\r\nlet Inventory =\r\n    arg(\"\").Resources\r\n    | where strcat(\"/subscriptions/\", subscriptionId) in~ ({subscriptionID})\r\n    | where type =~ \"microsoft.web/sites\"\r\n    | extend JoinKey = 1\r\n    | join hint.remote=right kind=inner (\r\n        print JoinKey = 1\r\n    ) on JoinKey\r\n    | project\r\n        ResourceId = tolower(id),\r\n        ResourceName = name,\r\n        WorkloadType = case(\r\n            tolower(tostring(kind)) contains \"functionapp\",\r\n                \"Azure Functions\",\r\n            tolower(tostring(kind)) contains \"workflowapp\",\r\n                \"Logic Apps Standard\",\r\n            \"App Service\");\r\nlet HealthEvents =\r\n    SourceActivity\r\n    | where CategoryValue in~ (\"ResourceHealth\", \"Resource Health\")\r\n    | extend ResourceIdLower = tolower(ResourceId)\r\n    | where ResourceIdLower contains\r\n        \"/providers/microsoft.web/sites/\"\r\n    | where ResourceIdLower !contains \"/slots/\"\r\n    | extend P = iif(\r\n        isnotempty(tostring(Properties_d)),\r\n        Properties_d,\r\n        parse_json(Properties))\r\n    | extend State = tostring(\r\n        coalesce(\r\n            P.currentHealthStatus,\r\n            P.healthStatus))\r\n    | where State in~ (\r\n        \"Available\",\r\n        \"Unavailable\",\r\n        \"Degraded\",\r\n        \"Unknown\")\r\n    | project\r\n        ResourceId = ResourceIdLower,\r\n        EventTime = TimeGenerated,\r\n        State;\r\nunion\r\n    (\r\n        Inventory\r\n        | project\r\n            ResourceId,\r\n            EventTime = StartTime,\r\n            State = \"Available\",\r\n            Priority = 0\r\n    ),\r\n    (\r\n        HealthEvents\r\n        | where EventTime < StartTime\r\n        | summarize arg_max(EventTime, State) by ResourceId\r\n        | project\r\n            ResourceId,\r\n            EventTime = StartTime,\r\n            State,\r\n            Priority = 1\r\n    ),\r\n    (\r\n        HealthEvents\r\n        | where EventTime >= StartTime\r\n            and EventTime < EndTime\r\n        | project\r\n            ResourceId,\r\n            EventTime,\r\n            State,\r\n            Priority = 2\r\n    )\r\n| summarize arg_max(Priority, State) by ResourceId, EventTime\r\n| project ResourceId, EventTime, State\r\n| sort by ResourceId asc, EventTime asc\r\n| serialize\r\n| extend\r\n    NextResourceId = next(ResourceId),\r\n    NextEventTime = next(EventTime)\r\n| extend IntervalEnd = iff(\r\n    NextResourceId == ResourceId,\r\n    min_of(NextEventTime, EndTime),\r\n    EndTime)\r\n| where EventTime < EndTime\r\n| extend IntervalMinutes =\r\n    todouble(\r\n        datetime_diff(\r\n            \"second\",\r\n            IntervalEnd,\r\n            EventTime))\r\n        / 60.0\r\n| summarize\r\n    Resources = dcount(ResourceId),\r\n    EligibleMinutes = sum(IntervalMinutes),\r\n    UnavailableMinutes = sumif(\r\n        IntervalMinutes,\r\n        State =~ \"Unavailable\")\r\n| where ActivityRows > 0\r\n| extend\r\n    Category = \"App Service, Functions and Logic Apps Standard\",\r\n    Availability = iff(\r\n        EligibleMinutes > 0,\r\n        round(\r\n            100.0 *\r\n            (EligibleMinutes - UnavailableMinutes)\r\n            / EligibleMinutes,\r\n            4),\r\n        real(null))\r\n| project\r\n    Category,\r\n    Resources,\r\n    EligibleMinutes = round(EligibleMinutes, 0),\r\n    UnavailableMinutes = round(UnavailableMinutes, 2),\r\n    Availability\r\n",
+              "size": 4,
+              "timeContextFromParameter": "TimeRange",
+              "showExportToExcel": true,
+              "exportToExcelOptions": "all",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{LogAnalyticsWorkspace}"
+              ],
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Availability",
+                    "formatter": 0,
+                    "numberFormat": {
+                      "unit": 1,
+                      "options": {
+                        "style": "decimal"
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "customWidth": "85",
+            "name": "Apps",
+            "styleSettings": {
+              "showBorder": true
+            }
+          }
+        ],
+        "exportParameters": true
+      },
+      "name": "ResourceAnalytics"
+    }
+  ],
+  "fallbackResourceIds": [
+    "Azure Monitor"
+  ],
+  "styleSettings": {
+    "paddingStyle": "wide",
+    "spacingStyle": "wide"
+  },
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+}
