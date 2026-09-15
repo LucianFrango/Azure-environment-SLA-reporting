@@ -19,9 +19,6 @@
       "type": 9,
       "content": {
         "version": "KqlParameterItem/1.0",
-        "crossComponentResources": [
-          "{subscriptionID}"
-        ],
         "parameters": [
           {
             "id": "72fffd48-8b49-4da2-95da-2102f3103a4b",
@@ -92,15 +89,13 @@
             "typeSettings": {
               "selectableValues": [
                 {
+                  "durationMs": 86400000
+                },
+                {
                   "durationMs": 2592000000
-                },
-                {
-                  "durationMs": 5184000000
-                },
-                {
-                  "durationMs": 7776000000
                 }
-              ]
+              ],
+              "allowCustom": true
             },
             "timeContext": {
               "durationMs": 86400000
@@ -111,7 +106,7 @@
           }
         ],
         "style": "formHorizontal",
-        "queryType": 1,
+        "queryType": 0,
         "resourceType": "microsoft.operationalinsights/workspaces"
       },
       "customWidth": "50",
@@ -278,7 +273,7 @@
               "json": "## Compute",
               "style": "info"
             },
-            "customWidth": "15",
+            "customWidth": "20",
             "showPin": false,
             "name": "Compute_Label",
             "styleSettings": {
@@ -314,7 +309,7 @@
                 ]
               }
             },
-            "customWidth": "85",
+            "customWidth": "80",
             "name": "Compute_v2",
             "styleSettings": {
               "showBorder": true
@@ -326,7 +321,7 @@
               "json": "## Storage",
               "style": "info"
             },
-            "customWidth": "15",
+            "customWidth": "20",
             "name": "Storage_Label",
             "styleSettings": {
               "margin": "36px"
@@ -361,7 +356,7 @@
                 ]
               }
             },
-            "customWidth": "85",
+            "customWidth": "80",
             "name": "Storage_v2",
             "styleSettings": {
               "showBorder": true
@@ -373,7 +368,7 @@
               "json": "## Disks",
               "style": "info"
             },
-            "customWidth": "15",
+            "customWidth": "20",
             "name": "Disks_Label",
             "styleSettings": {
               "margin": "36px"
@@ -408,7 +403,7 @@
                 ]
               }
             },
-            "customWidth": "85",
+            "customWidth": "80",
             "name": "Disks",
             "styleSettings": {
               "showBorder": true
@@ -420,7 +415,7 @@
               "json": "## Databases",
               "style": "info"
             },
-            "customWidth": "15",
+            "customWidth": "20",
             "name": "Databases_Label",
             "styleSettings": {
               "margin": "36px"
@@ -455,7 +450,7 @@
                 ]
               }
             },
-            "customWidth": "85",
+            "customWidth": "80",
             "name": "Databases",
             "styleSettings": {
               "showBorder": true
@@ -467,7 +462,7 @@
               "json": "## Apps",
               "style": "info"
             },
-            "customWidth": "15",
+            "customWidth": "20",
             "name": "Apps_Label",
             "styleSettings": {
               "margin": "36px"
@@ -502,7 +497,7 @@
                 ]
               }
             },
-            "customWidth": "85",
+            "customWidth": "80",
             "name": "Apps",
             "styleSettings": {
               "showBorder": true
